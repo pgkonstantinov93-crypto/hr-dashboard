@@ -27,22 +27,21 @@ def fetch_sheet(sheet_gid):
         vals = [v.strip().strip('"') for v in line.split(',')]
         if any(v for v in vals if v):
             rows.append(dict(zip(headers, vals)))
-    return rows
+    seen = set()
+    unique = []
+    for row in rows:
+        key = str(row)
+        if key not in seen:
+            seen.add(key)
+            unique.append(row)
+    return unique
 
 data = {}
 for name, gid in SHEETS.items():
     try:
         rows = fetch_sheet(gid)
-        # Дедупликация по дате — оставляем только уникальные строки
-        seen = set()
-        unique_rows = []
-        for row in rows:
-            key = str(row)
-            if key not in seen:
-                seen.add(key)
-                unique_rows.append(row)
-        data[name] = unique_rows
-        print(f'✅ {name}: {len(unique_rows)} rows')
+        data[name] = rows
+        print(f'✅ {name}: {len(rows)} rows')
     except Exception as e:
         print(f'❌ {name}: {e}')
         data[name] = []
@@ -52,4 +51,4 @@ data['updated_at'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
 with open('data.json', 'w', encoding='utf-8') as f:
     json.dump(data, f, ensure_ascii=False, indent=2)
 
-print(f'✅ data.json saved')
+print('✅ data.json saved')
