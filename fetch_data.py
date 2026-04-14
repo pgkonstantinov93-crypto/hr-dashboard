@@ -1,6 +1,8 @@
 import requests
 import json
 import os
+import csv
+import io
 from datetime import datetime
 
 SHEET_ID = os.environ.get('SHEET_ID', '1W4CY0Za6M3U7NqjwPjuUcyPr7SCQ__koSPrTi4ECs3I')
@@ -17,24 +19,18 @@ SHEETS = {
 def fetch_sheet(sheet_gid):
     url = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={sheet_gid}'
     r = requests.get(url, timeout=30)
+    r.encoding = 'utf-8'
     r.raise_for_status()
-    lines = r.text.strip().split('\n')
-    if len(lines) < 2:
-        return []
-    headers = [h.strip().strip('"') for h in lines[0].split(',')]
+    reader = csv.DictReader(io.StringIO(r.text))
     rows = []
-    for line in lines[1:]:
-        vals = [v.strip().strip('"') for v in line.split(',')]
-        if any(v for v in vals if v):
-            rows.append(dict(zip(headers, vals)))
     seen = set()
-    unique = []
-    for row in rows:
-        key = str(row)
-        if key not in seen:
+    for row in reader:
+        clean = {k.strip(): v.strip() for k, v in row.items() if k}
+        key = str(clean)
+        if key not in seen and any(clean.values()):
             seen.add(key)
-            unique.append(row)
-    return unique
+            rows.append(clean)
+    return rows
 
 data = {}
 for name, gid in SHEETS.items():
