@@ -9,7 +9,14 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #0f1117; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; padding: 20px; }
   h1 { color: #fff; font-size: 24px; margin-bottom: 6px; }
-  .subtitle { color: #888; font-size: 13px; margin-bottom: 24px; }
+  .subtitle { color: #888; font-size: 13px; margin-bottom: 16px; }
+  .filters { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+  .filters label { color: #888; font-size: 13px; }
+  .filters input[type="date"] { background: #1a1d27; border: 1px solid #2a2d3a; color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 13px; }
+  .filters button { background: #3b82f6; color: #fff; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+  .filters button:hover { background: #2563eb; }
+  .filters button.reset { background: #2a2d3a; }
+  .filters button.reset:hover { background: #374151; }
   .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 32px; }
   .kpi { background: #1a1d27; border-radius: 12px; padding: 20px; border-left: 4px solid #3b82f6; }
   .kpi.red { border-left-color: #ef4444; }
@@ -17,9 +24,8 @@
   .kpi.yellow { border-left-color: #f59e0b; }
   .kpi-label { font-size: 12px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
   .kpi-value { font-size: 32px; font-weight: 700; color: #fff; }
-  .kpi-sub { font-size: 12px; color: #666; margin-top: 4px; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
-  .card { background: #1a1d27; border-radius: 12px; padding: 24px; }
+  .card { background: #1a1d27; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
   .card h2 { font-size: 15px; color: #aaa; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { color: #666; font-weight: 500; text-align: left; padding: 8px 12px; border-bottom: 1px solid #2a2d3a; }
@@ -29,41 +35,87 @@
   .badge.red { background: #3f1a1a; color: #ef4444; }
   .badge.yellow { background: #3f2e0a; color: #f59e0b; }
   .badge.green { background: #0a3f1a; color: #22c55e; }
+  .toggle-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
   .updated { color: #444; font-size: 12px; text-align: right; margin-top: 24px; }
-  .loading { color: #444; text-align: center; padding: 40px; }
   @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 
 <h1>📊 HR Dashboard</h1>
-<p class="subtitle" id="updated">Загрузка данных...</p>
+<p class="subtitle" id="updated">Загрузка...</p>
 
-<div class="kpi-grid" id="kpi-grid">
-  <div class="loading">Загружаем данные из Google Sheets...</div>
+<div class="filters">
+  <label>С:</label>
+  <input type="date" id="dateFrom">
+  <label>По:</label>
+  <input type="date" id="dateTo">
+  <button onclick="applyFilter()">Применить</button>
+  <button class="reset" onclick="resetFilter()">Сегодня</button>
+</div>
+
+<div class="kpi-grid" id="kpi-grid"></div>
+
+<!-- Счётчик заявок -->
+<div class="card">
+  <div style="display:flex;gap:40px;align-items:center;flex-wrap:wrap;">
+    <div>
+      <div style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Заявок всего</div>
+      <div style="font-size:36px;font-weight:700;color:#fff;" id="total-jobs-count">—</div>
+    </div>
+    <div>
+      <div style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Открыто сейчас</div>
+      <div style="font-size:36px;font-weight:700;color:#22c55e;" id="open-jobs-count">—</div>
+    </div>
+    <div>
+      <div style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Закрыто</div>
+      <div style="font-size:36px;font-weight:700;color:#3b82f6;" id="closed-jobs-count">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- Все вакансии в работе -->
+<div class="card">
+  <div class="toggle-header" onclick="toggleVacancies()">
+    <h2 style="margin:0">📋 Все вакансии в работе</h2>
+    <span id="vac-btn" style="color:#3b82f6;font-size:13px;font-weight:600;">▼ Раскрыть</span>
+  </div>
+  <div id="vac-block" style="display:none;margin-top:20px;overflow-x:auto;">
+    <table id="vacancies-table">
+      <tr>
+        <th>Вакансия</th>
+        <th>Рекрутер</th>
+        <th>Отдел</th>
+        <th>Активных</th>
+        <th>Горячие этапы</th>
+        <th>Статус</th>
+      </tr>
+    </table>
+  </div>
 </div>
 
 <div class="grid-2">
   <div class="card">
     <h2>Рекрутеры</h2>
-    <table id="recruiter-table">
-      <tr><td class="loading">Загрузка...</td></tr>
-    </table>
+    <table id="recruiter-table"></table>
   </div>
   <div class="card">
     <h2>Воронка найма</h2>
-    <canvas id="funnelChart" height="220"></canvas>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <label style="color:#888;font-size:13px;">Дата:</label>
+      <input type="date" id="funnelDate" style="background:#0f1117;border:1px solid #2a2d3a;color:#fff;padding:6px 10px;border-radius:8px;font-size:13px;">
+      <button onclick="renderFunnel()" style="background:#3b82f6;color:#fff;border:none;padding:6px 16px;border-radius:8px;cursor:pointer;font-size:13px;">Показать</button>
+    </div>
+    <canvas id="funnelChart" height="260"></canvas>
   </div>
 </div>
 
-<div class="card" style="margin-bottom:24px">
+<div class="card">
   <h2>🔴 Просроченные вакансии</h2>
-  <table id="sla-table">
-    <tr><td class="loading">Загрузка...</td></tr>
-  </table>
+  <table id="sla-table"></table>
 </div>
 
-<div class="card" style="margin-bottom:24px">
+<div class="card">
   <h2>📈 Тренд — активные кандидаты</h2>
   <canvas id="trendChart" height="100"></canvas>
 </div>
@@ -71,139 +123,86 @@
 <p class="updated" id="footer"></p>
 
 <script>
-const SHEET_ID = '1W4CY0Za6M3U7NqjwPjuUcyPr7SCQ__koSPrTi4ECs3I';
-const GIDS = {
-  daily_snapshot: '700832784',
-  vacancies: '1914912702',
-  recruiter_stats: '613309742',
-  sla_log: '934058151',
-  funnel_stages: '1858502204',
-  events_log: '1934468928'
-};
+const DATA_URL = 'data.json';
+let allData = null;
+let funnelChart, trendChart;
+const HOT_STAGES = ['СБ','Автопроверка СБ','Проверка СБ','Медосмотр','Мед. осмотр','Сбор документов','Сбор документов на СБ','Оформление','Стажировка'];
 
-async function fetchSheet(gid) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
-  const r = await fetch(url);
-  const text = await r.text();
-  const lines = text.trim().split('\n');
-  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g,''));
-  return lines.slice(1).map(line => {
-    const vals = line.split(',').map(v => v.trim().replace(/"/g,''));
-    const obj = {};
-    headers.forEach((h,i) => obj[h] = vals[i] || '');
-    return obj;
-  }).filter(r => r[headers[0]]);
+async function loadData() {
+  document.getElementById('updated').textContent = 'Загрузка данных...';
+  const r = await fetch(DATA_URL + '?t=' + Date.now());
+  allData = await r.json();
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('dateFrom').value = today;
+  document.getElementById('dateTo').value = today;
+  document.getElementById('funnelDate').value = today;
+  renderDashboard(today, today);
+  renderFunnel();
 }
 
-let funnelChart, trendChart;
+function applyFilter() {
+  const from = document.getElementById('dateFrom').value;
+  const to = document.getElementById('dateTo').value;
+  if (from && to) renderDashboard(from, to);
+}
 
-async function loadDashboard() {
-  document.getElementById('updated').textContent = 'Обновляем данные...';
-  try {
-    const [snapshot, recruiters, sla, funnel] = await Promise.all([
-      fetchSheet(GIDS.daily_snapshot),
-      fetchSheet(GIDS.recruiter_stats),
-      fetchSheet(GIDS.sla_log),
-      fetchSheet(GIDS.funnel_stages)
-    ]);
+function resetFilter() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('dateFrom').value = today;
+  document.getElementById('dateTo').value = today;
+  renderDashboard(today, today);
+}
 
-    // KPI — последняя строка snapshot
-    const last = snapshot[snapshot.length - 1];
-    const kpis = [
-      { label: 'Открытых вакансий', value: last.total_open_jobs, cls: 'blue' },
-      { label: 'Активных кандидатов', value: last.total_active_candidates, cls: 'green' },
-      { label: 'Просрочено', value: last.overdue_count, cls: parseInt(last.overdue_count)>3?'red':'yellow' },
-      { label: 'Без рекрутера', value: last.no_recruiter_count, cls: parseInt(last.no_recruiter_count)>0?'red':'green' },
-      { label: 'Без кандидатов', value: last.no_candidates_count, cls: parseInt(last.no_candidates_count)>5?'red':'yellow' },
-      { label: 'Высокий приоритет', value: last.high_priority_count, cls: 'yellow' }
-    ];
-    document.getElementById('kpi-grid').innerHTML = kpis.map(k =>
-      `<div class="kpi ${k.cls}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}</div></div>`
-    ).join('');
+function inRange(date, from, to) { return date >= from && date <= to; }
 
-    // Рекрутеры — последний день
-    const lastDate = recruiters[recruiters.length-1]?.date;
-    const todayRec = recruiters.filter(r => r.date === lastDate);
-    document.getElementById('recruiter-table').innerHTML =
-      `<tr><th>Рекрутер</th><th>Вакансий</th><th>Кандидатов</th><th>Просрочено</th></tr>` +
-      todayRec.map(r => `<tr>
-        <td>${r.recruiter_name}</td>
-        <td>${r.open_jobs}</td>
-        <td>${r.total_active_candidates}</td>
-        <td><span class="badge ${parseInt(r.overdue_jobs)>0?'red':'green'}">${r.overdue_jobs}</span></td>
-      </tr>`).join('');
-
-    // SLA — просроченные
-    const slaLast = sla.filter(r => r.date === sla[sla.length-1]?.date).slice(0,10);
-    document.getElementById('sla-table').innerHTML =
-      `<tr><th>Вакансия</th><th>Рекрутер</th><th>Дней открыта</th><th>Дедлайн</th><th>Риск</th></tr>` +
-      (slaLast.length ? slaLast.map(r => `<tr>
-        <td>${r.job_title}</td>
-        <td>${r.recruiter}</td>
-        <td>${r.days_open}</td>
-        <td>${r.closure_date}</td>
-        <td><span class="badge ${r.risk_level==='HIGH'?'red':'yellow'}">${r.risk_level}</span></td>
-      </tr>`).join('') : '<tr><td colspan="5" style="color:#666;text-align:center">Просроченных нет 🎉</td></tr>');
-
-    // Воронка — суммируем по stage_name за последний день
-    const funnelDate = funnel[funnel.length-1]?.date;
-    const funnelToday = funnel.filter(r => r.date === funnelDate);
-    const stageMap = {};
-    funnelToday.forEach(r => {
-      if (!stageMap[r.stage_name]) stageMap[r.stage_name] = 0;
-      stageMap[r.stage_name] += parseInt(r.active_applicants)||0;
-    });
-    const stageNames = Object.keys(stageMap);
-    const stageVals = Object.values(stageMap);
-    if (funnelChart) funnelChart.destroy();
-    funnelChart = new Chart(document.getElementById('funnelChart'), {
-      type: 'bar',
-      data: {
-        labels: stageNames,
-        datasets: [{ data: stageVals, backgroundColor: '#3b82f6', borderRadius: 6 }]
-      },
-      options: {
-        indexAxis: 'y',
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: '#666' }, grid: { color: '#1e2130' } },
-          y: { ticks: { color: '#aaa' }, grid: { color: '#1e2130' } }
-        }
-      }
-    });
-
-    // Тренд — активные кандидаты по дням
-    const trendDates = snapshot.map(r => r.date);
-    const trendVals = snapshot.map(r => parseInt(r.total_active_candidates)||0);
-    if (trendChart) trendChart.destroy();
-    trendChart = new Chart(document.getElementById('trendChart'), {
-      type: 'line',
-      data: {
-        labels: trendDates,
-        datasets: [{ label: 'Активные кандидаты', data: trendVals, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', fill: true, tension: 0.4 }]
-      },
-      options: {
-        plugins: { legend: { labels: { color: '#aaa' } } },
-        scales: {
-          x: { ticks: { color: '#666' }, grid: { color: '#1e2130' } },
-          y: { ticks: { color: '#666' }, grid: { color: '#1e2130' } }
-        }
-      }
-    });
-
-    const now = new Date().toLocaleString('ru-RU');
-    document.getElementById('updated').textContent = `Данные актуальны на: ${last.date}`;
-    document.getElementById('footer').textContent = `Страница открыта: ${now}`;
-
-  } catch(e) {
-    document.getElementById('kpi-grid').innerHTML = `<div style="color:#ef4444">Ошибка загрузки: ${e.message}. Проверь доступ к таблице.</div>`;
+function toggleVacancies() {
+  const block = document.getElementById('vac-block');
+  const btn = document.getElementById('vac-btn');
+  if (block.style.display === 'none') {
+    block.style.display = 'block';
+    btn.textContent = '▲ Скрыть';
+  } else {
+    block.style.display = 'none';
+    btn.textContent = '▼ Раскрыть';
   }
 }
 
-loadDashboard();
-// Обновление каждый час
-setInterval(loadDashboard, 60 * 60 * 1000);
-</script>
-</body>
-</html>
+function renderDashboard(from, to) {
+  if (!allData) return;
 
+  const snapshot = allData.daily_snapshot.filter(r => inRange(r.date, from, to));
+  const recruiters = allData.recruiter_stats.filter(r => inRange(r.date, from, to));
+  const sla = allData.sla_log.filter(r => inRange(r.date, from, to));
+
+  // KPI
+  const avg = (arr, key) => arr.length ? Math.round(arr.reduce((s,r) => s+(parseInt(r[key])||0),0)/arr.length) : 0;
+  document.getElementById('kpi-grid').innerHTML = [
+    { label: 'Открытых вакансий',    value: avg(snapshot,'total_open_jobs'),           cls: 'blue' },
+    { label: 'Активных кандидатов',  value: avg(snapshot,'total_active_candidates'),   cls: 'green' },
+    { label: 'Просрочено',           value: avg(snapshot,'overdue_count'),             cls: avg(snapshot,'overdue_count')>3?'red':'yellow' },
+    { label: 'Без рекрутера',        value: avg(snapshot,'no_recruiter_count'),        cls: avg(snapshot,'no_recruiter_count')>0?'red':'green' },
+    { label: 'Без кандидатов',       value: avg(snapshot,'no_candidates_count'),       cls: avg(snapshot,'no_candidates_count')>5?'red':'yellow' },
+    { label: 'Высокий приоритет',    value: avg(snapshot,'high_priority_count'),       cls: 'yellow' }
+  ].map(k=>`<div class="kpi ${k.cls}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}</div></div>`).join('');
+
+  // Счётчик вакансий
+  const vacMap = {};
+  allData.vacancies.filter(r => inRange(r.date, from, to)).forEach(r => { vacMap[r.job_id] = r; });
+  const vacs = Object.values(vacMap);
+  const openVacs = vacs.filter(v => v.state === 'opened' || v.state === 'open');
+  document.getElementById('total-jobs-count').textContent = vacs.length;
+  document.getElementById('open-jobs-count').textContent = openVacs.length;
+  document.getElementById('closed-jobs-count').textContent = vacs.length - openVacs.length;
+
+  // Таблица вакансий
+  const funnelMap = {};
+  allData.funnel_stages.filter(r => inRange(r.date, from, to)).forEach(r => {
+    if (!funnelMap[r.job_id]) funnelMap[r.job_id] = [];
+    if (HOT_STAGES.some(s => r.stage_name.toLowerCase().includes(s.toLowerCase())) && parseInt(r.active_applicants)>0) {
+      if (!funnelMap[r.job_id].find(s => s.name === r.stage_name)) {
+        funnelMap[r.job_id].push({ name: r.stage_name, count: parseInt(r.active_applicants) });
+      }
+    }
+  });
+  const vacRows = openVacs.sort((a,b) => (parseInt(b.active_candidates)||0)-(parseInt(a.active_candidates)||0)).map(v => {
+    const hot = (funnelMap[v.job_id]||[]).map(s=>`<span style="background:#0a3f1a;color:#22c55e;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600<span class="cursor">█</span>
