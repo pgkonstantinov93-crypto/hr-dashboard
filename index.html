@@ -16,7 +16,6 @@
   .filters button { background: #3b82f6; color: #fff; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; }
   .filters button:hover { background: #2563eb; }
   .filters button.reset { background: #2a2d3a; }
-  .filters button.reset:hover { background: #374151; }
   .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 32px; }
   .kpi { background: #1a1d27; border-radius: 12px; padding: 20px; border-left: 4px solid #3b82f6; }
   .kpi.red { border-left-color: #ef4444; }
@@ -56,7 +55,6 @@
 
 <div class="kpi-grid" id="kpi-grid"></div>
 
-<!-- Счётчик заявок -->
 <div class="card">
   <div style="display:flex;gap:40px;align-items:center;flex-wrap:wrap;">
     <div>
@@ -74,7 +72,6 @@
   </div>
 </div>
 
-<!-- Все вакансии в работе -->
 <div class="card">
   <div class="toggle-header" onclick="toggleVacancies()">
     <h2 style="margin:0">📋 Все вакансии в работе</h2>
@@ -82,24 +79,17 @@
   </div>
   <div id="vac-block" style="display:none;margin-top:20px;overflow-x:auto;">
     <table id="vacancies-table">
-      <tr>
-        <th>Вакансия</th>
-        <th>Рекрутер</th>
-        <th>Отдел</th>
-        <th>Активных</th>
-        <th>Горячие этапы</th>
-        <th>Статус</th>
-      </tr>
+      <tr><th>Вакансия</th><th>Рекрутер</th><th>Отдел</th><th>Активных</th><th>Горячие этапы</th><th>Статус</th></tr>
     </table>
   </div>
 </div>
 
 <div class="grid-2">
-  <div class="card">
+  <div class="card" style="margin-bottom:0">
     <h2>Рекрутеры</h2>
     <table id="recruiter-table"></table>
   </div>
-  <div class="card">
+  <div class="card" style="margin-bottom:0">
     <h2>Воронка найма</h2>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
       <label style="color:#888;font-size:13px;">Дата:</label>
@@ -128,16 +118,28 @@ let allData = null;
 let funnelChart, trendChart;
 const HOT_STAGES = ['СБ','Автопроверка СБ','Проверка СБ','Медосмотр','Мед. осмотр','Сбор документов','Сбор документов на СБ','Оформление','Стажировка'];
 
+function getToday() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + d;
+}
+
 async function loadData() {
-  document.getElementById('updated').textContent = 'Загрузка данных...';
-  const r = await fetch(DATA_URL + '?t=' + Date.now());
-  allData = await r.json();
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('dateFrom').value = today;
-  document.getElementById('dateTo').value = today;
-  document.getElementById('funnelDate').value = today;
-  renderDashboard(today, today);
-  renderFunnel();
+  try {
+    document.getElementById('updated').textContent = 'Загрузка данных...';
+    const r = await fetch(DATA_URL + '?t=' + Date.now());
+    allData = await r.json();
+    const today = getToday();
+    document.getElementById('dateFrom').value = today;
+    document.getElementById('dateTo').value = today;
+    document.getElementById('funnelDate').value = today;
+    renderDashboard(today, today);
+    renderFunnel();
+  } catch(e) {
+    document.getElementById('updated').textContent = 'Ошибка загрузки: ' + e.message;
+  }
 }
 
 function applyFilter() {
@@ -147,7 +149,7 @@ function applyFilter() {
 }
 
 function resetFilter() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getToday();
   document.getElementById('dateFrom').value = today;
   document.getElementById('dateTo').value = today;
   renderDashboard(today, today);
@@ -173,36 +175,140 @@ function renderDashboard(from, to) {
   const snapshot = allData.daily_snapshot.filter(r => inRange(r.date, from, to));
   const recruiters = allData.recruiter_stats.filter(r => inRange(r.date, from, to));
   const sla = allData.sla_log.filter(r => inRange(r.date, from, to));
+  const vacancies = allData.vacancies.filter(r => inRange(r.date, from, to));
+  const funnel = allData.funnel_stages.filter(r => inRange(r.date, from, to));
+
+  // Если данных за выбранный период нет — берём последнюю доступную дату
+  const effectiveSnapshot = snapshot.length ? snapshot : allData.daily_snapshot.slice(-1);
+  const effectiveRecruiters = recruiters.length ? recruiters : allData.recruiter_stats.slice(-10);
+  const effectiveSla = sla.length ? sla : allData.sla_log.slice(-10);
+  const effectiveVacancies = vacancies.length ? vacancies : allData.vacancies.slice(-50);
+  const effectiveFunnel = funnel.length ? funnel : allData.funnel_stages.slice(-100);
 
   // KPI
-  const avg = (arr, key) => arr.length ? Math.round(arr.reduce((s,r) => s+(parseInt(r[key])||0),0)/arr.length) : 0;
+  const avgF = (arr, key) => arr.length ? Math.round(arr.reduce((s,r) => s+(parseFloat(r[key])||0),0)/arr.length) : 0;
   document.getElementById('kpi-grid').innerHTML = [
-    { label: 'Открытых вакансий',    value: avg(snapshot,'total_open_jobs'),           cls: 'blue' },
-    { label: 'Активных кандидатов',  value: avg(snapshot,'total_active_candidates'),   cls: 'green' },
-    { label: 'Просрочено',           value: avg(snapshot,'overdue_count'),             cls: avg(snapshot,'overdue_count')>3?'red':'yellow' },
-    { label: 'Без рекрутера',        value: avg(snapshot,'no_recruiter_count'),        cls: avg(snapshot,'no_recruiter_count')>0?'red':'green' },
-    { label: 'Без кандидатов',       value: avg(snapshot,'no_candidates_count'),       cls: avg(snapshot,'no_candidates_count')>5?'red':'yellow' },
-    { label: 'Высокий приоритет',    value: avg(snapshot,'high_priority_count'),       cls: 'yellow' }
+    { label: 'Открытых вакансий',   value: avgF(effectiveSnapshot,'total_open_jobs'),         cls: 'blue' },
+    { label: 'Активных кандидатов', value: avgF(effectiveSnapshot,'total_active_candidates'), cls: 'green' },
+    { label: 'Просрочено',          value: avgF(effectiveSnapshot,'overdue_count'),           cls: avgF(effectiveSnapshot,'overdue_count')>3?'red':'yellow' },
+    { label: 'Без рекрутера',       value: avgF(effectiveSnapshot,'no_recruiter_count'),      cls: avgF(effectiveSnapshot,'no_recruiter_count')>0?'red':'green' },
+    { label: 'Без кандидатов',      value: avgF(effectiveSnapshot,'no_candidates_count'),     cls: 'yellow' },
+    { label: 'Высокий приоритет',   value: avgF(effectiveSnapshot,'high_priority_count'),     cls: 'yellow' }
   ].map(k=>`<div class="kpi ${k.cls}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}</div></div>`).join('');
 
   // Счётчик вакансий
   const vacMap = {};
-  allData.vacancies.filter(r => inRange(r.date, from, to)).forEach(r => { vacMap[r.job_id] = r; });
+  effectiveVacancies.forEach(r => { vacMap[r.job_id] = r; });
   const vacs = Object.values(vacMap);
   const openVacs = vacs.filter(v => v.state === 'opened' || v.state === 'open');
   document.getElementById('total-jobs-count').textContent = vacs.length;
   document.getElementById('open-jobs-count').textContent = openVacs.length;
   document.getElementById('closed-jobs-count').textContent = vacs.length - openVacs.length;
 
-  // Таблица вакансий
+  // Горячие этапы
   const funnelMap = {};
-  allData.funnel_stages.filter(r => inRange(r.date, from, to)).forEach(r => {
+  effectiveFunnel.forEach(r => {
     if (!funnelMap[r.job_id]) funnelMap[r.job_id] = [];
-    if (HOT_STAGES.some(s => r.stage_name.toLowerCase().includes(s.toLowerCase())) && parseInt(r.active_applicants)>0) {
+    if (HOT_STAGES.some(s => r.stage_name && r.stage_name.toLowerCase().includes(s.toLowerCase())) && parseInt(r.active_applicants)>0) {
       if (!funnelMap[r.job_id].find(s => s.name === r.stage_name)) {
         funnelMap[r.job_id].push({ name: r.stage_name, count: parseInt(r.active_applicants) });
       }
     }
   });
-  const vacRows = openVacs.sort((a,b) => (parseInt(b.active_candidates)||0)-(parseInt(a.active_candidates)||0)).map(v => {
-    const hot = (funnelMap[v.job_id]||[]).map(s=>`<span style="background:#0a3f1a;color:#22c55e;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600<span class="cursor">█</span>
+
+  // Таблица вакансий
+  const vacRows = openVacs.sort((a,b)=>(parseInt(b.active_candidates)||0)-(parseInt(a.active_candidates)||0)).map(v => {
+    const hot = (funnelMap[v.job_id]||[]).map(s=>`<span style="background:#0a3f1a;color:#22c55e;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;margin-right:4px;">✅ ${s.name}: ${s.count}</span>`).join('') || '<span style="color:#444;font-size:12px;">—</span>';
+    const status = v.is_overdue==='TRUE'
+      ? '<span style="background:#3f1a1a;color:#ef4444;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;">ПРОСРОЧЕНА</span>'
+      : '<span style="background:#0a3f1a;color:#22c55e;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;">В РАБОТЕ</span>';
+    return `<tr><td>${v.title||v.job_title||'—'}</td><td>${v.recruiter||'—'}</td><td>${v.department||'—'}</td><td style="font-weight:700;color:#3b82f6;">${v.active_candidates||0}</td><td>${hot}</td><td>${status}</td></tr>`;
+  }).join('');
+  document.getElementById('vacancies-table').innerHTML =
+    `<tr><th>Вакансия</th><th>Рекрутер</th><th>Отдел</th><th>Активных</th><th>Горячие этапы</th><th>Статус</th></tr>${vacRows}`;
+
+  // Рекрутеры
+  const recMap = {};
+  effectiveRecruiters.forEach(r => {
+    const n = r.recruiter_name;
+    if (!n) return;
+    if (!recMap[n]) recMap[n] = { jobs:[], cands:[], overdue:[] };
+    recMap[n].jobs.push(parseInt(r.open_jobs)||0);
+    recMap[n].cands.push(parseInt(r.total_active_candidates)||0);
+    recMap[n].overdue.push(parseInt(r.overdue_jobs)||0);
+  });
+  const avgArr = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : 0;
+  document.getElementById('recruiter-table').innerHTML =
+    `<tr><th>Рекрутер</th><th>Вакансий</th><th>Кандидатов</th><th>Просрочено</th></tr>` +
+    Object.entries(recMap).map(([n,d])=>`<tr><td>${n}</td><td>${avgArr(d.jobs)}</td><td>${avgArr(d.cands)}</td><td><span class="badge ${avgArr(d.overdue)>0?'red':'green'}">${avgArr(d.overdue)}</span></td></tr>`).join('');
+
+  // SLA
+  const slaUniq = [...new Map(effectiveSla.map(r=>[r.job_id,r])).values()].slice(0,10);
+  document.getElementById('sla-table').innerHTML =
+    `<tr><th>Вакансия</th><th>Рекрутер</th><th>Дней открыта</th><th>Дедлайн</th><th>Риск</th></tr>` +
+    (slaUniq.length ? slaUniq.map(r=>`<tr><td>${r.job_title}</td><td>${r.recruiter}</td><td>${r.days_open}</td><td>${r.closure_date}</td><td><span class="badge ${r.risk_level==='HIGH'?'red':'yellow'}">${r.risk_level}</span></td></tr>`).join('') : '<tr><td colspan="5" style="color:#666;text-align:center">Просроченных нет 🎉</td></tr>');
+
+  // Тренд
+  const dates = [...new Set(allData.daily_snapshot.map(r=>r.date))].sort();
+  const vals = dates.map(d => { const rows=allData.daily_snapshot.filter(r=>r.date===d); return rows.length?parseInt(rows[rows.length-1].total_active_candidates)||0:0; });
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: { labels: dates, datasets: [{ label: 'Активные кандидаты', data: vals, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', fill: true, tension: 0.4 }] },
+    options: { plugins: { legend: { labels: { color: '#aaa' } } }, scales: { x: { ticks: { color: '#666' }, grid: { color: '#1e2130' } }, y: { ticks: { color: '#666' }, grid: { color: '#1e2130' } } } }
+  });
+
+  const range = from===to ? from : `${from} — ${to}`;
+  document.getElementById('updated').textContent = `Период: ${range} | Обновлено: ${allData.updated_at}`;
+  document.getElementById('footer').textContent = `Открыто: ${new Date().toLocaleString('ru-RU')}`;
+}
+
+function renderFunnel() {
+  if (!allData) return;
+  const date = document.getElementById('funnelDate').value;
+  if (!date) return;
+  const dayFunnel = allData.funnel_stages.filter(r => r.date === date);
+  const useFunnel = dayFunnel.length ? dayFunnel : allData.funnel_stages.slice(-50);
+  const stageMap = {};
+  useFunnel.forEach(r => {
+    if (!stageMap[r.stage_name]) stageMap[r.stage_name] = 0;
+    stageMap[r.stage_name] += parseInt(r.active_applicants)||0;
+  });
+  const sorted = Object.entries(stageMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if (funnelChart) funnelChart.destroy();
+  funnelChart = new Chart(document.getElementById('funnelChart'), {
+    type: 'bar',
+    data: {
+      labels: sorted.map(s=>s[0]),
+      datasets: [{ data: sorted.map(s=>s[1]), backgroundColor: '#3b82f6', borderRadius: 6 }]
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#666' }, grid: { color: '#1e2130' } },
+        y: { ticks: { color: '#aaa', font: { size: 11 } }, grid: { color: '#1e2130' } }
+      },
+      animation: {
+        onComplete: function() {
+          const ctx = this.ctx;
+          ctx.font = 'bold 12px Segoe UI';
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'left';
+          this.data.datasets.forEach((dataset, i) => {
+            this.getDatasetMeta(i).data.forEach((bar, index) => {
+              const val = dataset.data[index];
+              if (val > 0) ctx.fillText(val, bar.x + 6, bar.y + 4);
+            });
+          });
+        }
+      }
+    }
+  });
+}
+
+loadData();
+setInterval(loadData, 60 * 60 * 1000);
+</script>
+</body>
+</html>
