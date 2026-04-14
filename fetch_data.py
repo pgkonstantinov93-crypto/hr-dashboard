@@ -6,11 +6,12 @@ from datetime import datetime
 SHEET_ID = os.environ.get('SHEET_ID', '1W4CY0Za6M3U7NqjwPjuUcyPr7SCQ__koSPrTi4ECs3I')
 
 SHEETS = {
-    'daily_snapshot': '1817386711',
-    'vacancies': '0',
-    'recruiter_stats': '1663571946',
-    'sla_log': '1051732898',
-    'funnel_stages': '123456789'
+    'daily_snapshot': '700832784',
+    'vacancies': '1914912702',
+    'recruiter_stats': '613309742',
+    'sla_log': '934058151',
+    'funnel_stages': '1858502204',
+    'events_log': '1934468928'
 }
 
 def fetch_sheet(sheet_gid):
@@ -24,15 +25,24 @@ def fetch_sheet(sheet_gid):
     rows = []
     for line in lines[1:]:
         vals = [v.strip().strip('"') for v in line.split(',')]
-        if any(vals):
+        if any(v for v in vals if v):
             rows.append(dict(zip(headers, vals)))
     return rows
 
 data = {}
 for name, gid in SHEETS.items():
     try:
-        data[name] = fetch_sheet(gid)
-        print(f'✅ {name}: {len(data[name])} rows')
+        rows = fetch_sheet(gid)
+        # Дедупликация по дате — оставляем только уникальные строки
+        seen = set()
+        unique_rows = []
+        for row in rows:
+            key = str(row)
+            if key not in seen:
+                seen.add(key)
+                unique_rows.append(row)
+        data[name] = unique_rows
+        print(f'✅ {name}: {len(unique_rows)} rows')
     except Exception as e:
         print(f'❌ {name}: {e}')
         data[name] = []
@@ -42,4 +52,4 @@ data['updated_at'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
 with open('data.json', 'w', encoding='utf-8') as f:
     json.dump(data, f, ensure_ascii=False, indent=2)
 
-print(f'✅ data.json saved, updated_at: {data["updated_at"]}')
+print(f'✅ data.json saved')
