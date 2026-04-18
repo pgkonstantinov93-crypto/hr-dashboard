@@ -269,6 +269,15 @@
       "no_recruiter_count": "0",
       "no_candidates_count": "0",
       "high_priority_count": "0"
+    },
+    {
+      "date": "2026-04-19",
+      "total_open_jobs": "0",
+      "total_active_candidates": "0",
+      "overdue_count": "0",
+      "no_recruiter_count": "0",
+      "no_candidates_count": "0",
+      "high_priority_count": "0"
     }
   ],
   "vacancies": [
@@ -66027,5 +66036,5 @@
       "body_short": "Загружен в систему"
     }
   ],
-  "updated_at": "2026-04-18 21:51 UTC"
+  "updated_at": "2026-04-18 23:53 UTC"
 }
